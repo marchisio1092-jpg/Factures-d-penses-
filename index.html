@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#111827">
+<title>Suivi des dépenses et factures</title>
+<style>
+:root{--bg:#10141d;--panel:#1a2230;--panel2:#222d3d;--text:#f3f6fb;--muted:#aab6c7;--green:#42d392;--red:#ff7373;--line:#344154;--blue:#75a7ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1050px;margin:auto;padding:22px 15px 50px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:25px;margin:0 0 5px}.sub,.muted{color:var(--muted)}.sub{font-size:13px}
+button,input,select{font:inherit;border-radius:10px;border:1px solid var(--line);padding:11px;background:#111a27;color:var(--text)}
+button{cursor:pointer;background:var(--green);color:#092016;border:0;font-weight:700}.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.danger{background:#512b35;color:#ffdce1;border:1px solid #78414d}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.card,.panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:15px}
+.stat-label{color:var(--muted);font-size:12px}.stat{font-size:23px;font-weight:800;margin-top:5px}
+.panel{margin-bottom:16px}.panel h2{font-size:17px;margin:0 0 13px}
+.formgrid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:10px;align-items:end}
+.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:12px;color:var(--muted)}
+.field input,.field select{width:100%;min-width:0}
+.checkline{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;margin:12px 0}
+.checkline input{width:18px;height:18px;accent-color:var(--green)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+.toolbar input{max-width:260px}
+table{width:100%;border-collapse:collapse;min-width:700px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:600}td strong{font-weight:700}.pill{font-size:11px;padding:4px 8px;border-radius:20px;background:#29394a;color:#dce8f7;white-space:nowrap}
+.type-fixed{color:var(--green)}.type-variable{color:#ffd27a}.smallbtn{padding:7px 10px;font-size:12px;margin:2px}
+.tablewrap{overflow-x:auto}.empty{text-align:center;color:var(--muted);padding:25px}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
+.hidden{display:none!important}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:repeat(2,1fr)}.formgrid .wide{grid-column:1/-1}}
+@media(max-width:430px){h1{font-size:21px}.grid{gap:8px}.card{padding:12px}.stat{font-size:19px}.formgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div><h1>Mes dépenses et factures</h1><div class="sub">Suivi des montants récurrents et variables</div></div>
+    <div class="actions" style="margin:0">
+      <button class="secondary" id="exportBtn">Exporter</button>
+      <button class="secondary" id="importBtn">Importer</button>
+      <input id="importFile" type="file" accept="application/json" class="hidden">
+    </div>
+  </div>
+
+  <section class="grid">
+    <div class="card"><div class="stat-label">Total mensuel estimé</div><div class="stat" id="monthlyTotal">0,00 $</div></div>
+    <div class="card"><div class="stat-label">Total annuel estimé</div><div class="stat" id="yearlyTotal">0,00 $</div></div>
+    <div class="card"><div class="stat-label">Factures fixes / mois</div><div class="stat" id="fixedTotal">0,00 $</div></div>
+    <div class="card"><div class="stat-label">Dépenses variables / mois</div><div class="stat" id="variableTotal">0,00 $</div></div>
+  </section>
+
+  <section class="panel">
+    <h2 id="formTitle">Ajouter une dépense ou une facture</h2>
+    <form id="expenseForm">
+      <input type="hidden" id="editId">
+      <div class="formgrid">
+        <div class="field wide"><label for="name">Nom de la dépense / facture</label><input id="name" required placeholder="Ex. Assurance, téléphone, essence"></div>
+        <div class="field"><label for="amount">Montant ($)</label><input id="amount" type="number" min="0" step="0.01" required placeholder="0,00"></div>
+        <div class="field"><label for="frequency">Fréquence</label>
+          <select id="frequency">
+            <option value="weekly">Chaque semaine</option>
+            <option value="biweekly">Aux 2 semaines</option>
+            <option value="monthly" selected>Chaque mois</option>
+            <option value="bimonthly">Tous les 2 mois</option>
+          </select>
+        </div>
+        <div class="field"><label for="category">Catégorie</label>
+          <select id="category"><option>Facture</option><option>Logement</option><option>Transport</option><option>Auto / Taxi</option><option>Téléphone / Internet</option><option>Alimentation</option><option>Abonnement</option><option>Autre</option></select>
+        </div>
+      </div>
+      <label class="checkline"><input id="fixed" type="checkbox" checked> Montant fixe (sera automatiquement reporté selon la fréquence)</label>
+      <div class="note">Décochez cette case pour une dépense variable : le montant saisi sert alors d'estimation pour chaque période. Vous pouvez le modifier à tout moment.</div>
+      <div class="actions">
+        <button type="submit" id="saveBtn">Ajouter</button>
+        <button type="button" class="secondary hidden" id="cancelEdit">Annuler la modification</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar"><h2 style="margin:0">Liste de mes dépenses</h2><input id="search" placeholder="Rechercher une facture..."></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Nom</th><th>Catégorie</th><th>Montant / période</th><th>Fréquence</th><th>Type</th><th>Équivalent / mois</th><th>Actions</th></tr></thead>
+        <tbody id="expenseRows"></tbody>
+      </table>
+      <div id="empty" class="empty">Aucune dépense enregistrée. Ajoutez votre première facture ci-dessus.</div>
+    </div>
+    <div class="note">Les montants mensuels sont des moyennes de budget : semaine = montant × 52 ÷ 12 ; aux 2 semaines = montant × 26 ÷ 12 ; chaque mois = montant ; tous les 2 mois = montant ÷ 2. Les données restent enregistrées dans ce navigateur.</div>
+  </section>
+</main>
+<script>
+const KEY='suivi_depenses_factures_v1';
+const frequencies={
+ weekly:{label:'Chaque semaine',monthly:52/12},
+ biweekly:{label:'Aux 2 semaines',monthly:26/12},
+ monthly:{label:'Chaque mois',monthly:1},
+ bimonthly:{label:'Tous les 2 mois',monthly:1/2}
+};
+let expenses=load();
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return []}}
+function persist(){localStorage.setItem(KEY,JSON.stringify(expenses));render()}
+function money(n){return new Intl.NumberFormat('fr-CA',{style:'currency',currency:'CAD'}).format(Number(n)||0)}
+function monthly(e){return Number(e.amount)*frequencies[e.frequency].monthly}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function render(){
+ const q=document.getElementById('search').value.toLowerCase();
+ const list=expenses.filter(e=>(e.name+' '+e.category).toLowerCase().includes(q));
+ const rows=document.getElementById('expenseRows');
+ rows.innerHTML=list.map(e=>`<tr>
+ <td><strong>${escapeHtml(e.name)}</strong></td><td>${escapeHtml(e.category)}</td>
+ <td>${money(e.amount)}</td><td><span class="pill">${frequencies[e.frequency].label}</span></td>
+ <td class="${e.fixed?'type-fixed':'type-variable'}">${e.fixed?'Fixe':'Variable'}</td>
+ <td><strong>${money(monthly(e))}</strong></td>
+ <td><button class="secondary smallbtn" onclick="editExpense('${e.id}')">Modifier</button><button class="danger smallbtn" onclick="deleteExpense('${e.id}')">Supprimer</button></td></tr>`).join('');
+ document.getElementById('empty').classList.toggle('hidden',list.length>0);
+ const total=expenses.reduce((s,e)=>s+monthly(e),0);
+ const fixed=expenses.filter(e=>e.fixed).reduce((s,e)=>s+monthly(e),0);
+ document.getElementById('monthlyTotal').textContent=money(total);
+ document.getElementById('yearlyTotal').textContent=money(total*12);
+ document.getElementById('fixedTotal').textContent=money(fixed);
+ document.getElementById('variableTotal').textContent=money(total-fixed);
+}
+function resetForm(){
+ document.getElementById('expenseForm').reset();
+ document.getElementById('editId').value='';
+ document.getElementById('frequency').value='monthly';
+ document.getElementById('fixed').checked=true;
+ document.getElementById('formTitle').textContent='Ajouter une dépense ou une facture';
+ document.getElementById('saveBtn').textContent='Ajouter';
+ document.getElementById('cancelEdit').classList.add('hidden');
+}
+document.getElementById('expenseForm').addEventListener('submit',ev=>{
+ ev.preventDefault();
+ const id=document.getElementById('editId').value;
+ const item={id:id||crypto.randomUUID(),name:document.getElementById('name').value.trim(),
+ amount:Number(document.getElementById('amount').value),frequency:document.getElementById('frequency').value,
+ category:document.getElementById('category').value,fixed:document.getElementById('fixed').checked};
+ if(!item.name||!Number.isFinite(item.amount)||item.amount<0)return;
+ if(id)expenses=expenses.map(e=>e.id===id?item:e);else expenses.push(item);
+ persist();resetForm();
+});
+window.editExpense=id=>{
+ const e=expenses.find(x=>x.id===id);if(!e)return;
+ document.getElementById('editId').value=e.id;document.getElementById('name').value=e.name;
+ document.getElementById('amount').value=e.amount;document.getElementById('frequency').value=e.frequency;
+ document.getElementById('category').value=e.category;document.getElementById('fixed').checked=e.fixed;
+ document.getElementById('formTitle').textContent='Modifier la dépense';document.getElementById('saveBtn').textContent='Enregistrer';
+ document.getElementById('cancelEdit').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});
+};
+window.deleteExpense=id=>{if(confirm('Supprimer cette dépense ?')){expenses=expenses.filter(e=>e.id!==id);persist();}};
+document.getElementById('cancelEdit').onclick=resetForm;
+document.getElementById('search').addEventListener('input',render);
+document.getElementById('exportBtn').onclick=()=>{
+ const blob=new Blob([JSON.stringify(expenses,null,2)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mes-depenses-factures.json';a.click();URL.revokeObjectURL(a.href);
+};
+document.getElementById('importBtn').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=async ev=>{
+ const f=ev.target.files[0];if(!f)return;
+ try{const data=JSON.parse(await f.text());if(!Array.isArray(data))throw Error();
+ if(confirm('Importer et remplacer la liste actuelle ?')){expenses=data.filter(e=>e&&e.name&&frequencies[e.frequency]&&Number.isFinite(Number(e.amount))).map(e=>({...e,amount:Number(e.amount),fixed:!!e.fixed}));persist();}
+ }catch(e){alert('Fichier invalide. Utilisez un export JSON de cette application.')}
+ ev.target.value='';
+};
+render();
+</script>
+</body>
+</html>
